@@ -1,0 +1,14 @@
+{
+  "name": "lean-ninja-challenge",
+  "version": "1.0.0",
+  "description": "Gideon USA Lean Ninja 5S Performance Challenge",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2",
+    "pg": "^8.11.3"
+  }
+}
