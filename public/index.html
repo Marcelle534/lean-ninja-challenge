@@ -312,12 +312,12 @@ label.lbl{display:block;font-size:11px;letter-spacing:2px;color:#666;text-transf
     <!-- Code share card -->
     <div class="code-share">
       <div class="label">Players scan to join</div>
-      <div class="qr-wrap">
-        <img id="qr-img" src="" alt="QR Code" width="180" height="180" style="display:block"
-          onerror="this.style.display='none';document.getElementById('qr-fallback').style.display='block'">
+      <div class="qr-wrap" id="qr-wrap" style="display:none">
+        <img id="qr-img" alt="QR Code" width="180" height="180" style="display:block"
+          onerror="document.getElementById('qr-wrap').style.display='none';document.getElementById('qr-fallback').style.display='block'">
       </div>
-      <div id="qr-fallback" style="display:none;font-size:12px;color:rgba(255,255,255,.8);word-break:break-all;margin-top:8px;padding:0 8px" id="qr-fallback"></div>
-      <div class="qr-label">or enter code manually</div>
+      <div id="qr-fallback" style="display:none;font-size:12px;color:rgba(255,255,255,.8);word-break:break-all;margin-top:8px;padding:0 8px;background:rgba(0,0,0,.3);border-radius:6px"></div>
+      <div class="qr-label" id="qr-label" style="display:none">or enter code manually</div>
       <div class="code" id="hl-code">----</div>
       <div class="url" id="hl-url"></div>
     </div>
@@ -992,9 +992,16 @@ function esc(s) {
 // ── QR CODE ──────────────────────────────────────────────────
 function generateQR(code) {
   const joinUrl = `${location.origin}/?code=${code}`;
-  document.getElementById('qr-img').src =
-    `https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&data=${encodeURIComponent(joinUrl)}`;
-  document.getElementById('qr-fallback').textContent = joinUrl;
+  const img     = document.getElementById('qr-img');
+  img.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&data=${encodeURIComponent(joinUrl)}`;
+  img.onload = () => {
+    document.getElementById('qr-wrap').style.display  = 'inline-block';
+    document.getElementById('qr-label').style.display = 'block';
+  };
+  // Fallback URL always visible as backup
+  const fb = document.getElementById('qr-fallback');
+  fb.textContent    = joinUrl;
+  fb.style.display  = 'block';
 }
 
 // Auto-switch to host tab if ?host=true
