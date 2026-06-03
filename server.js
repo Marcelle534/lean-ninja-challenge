@@ -174,17 +174,20 @@ function genRound3(rng) {
 
 // Round 4 — 9-col grid, sequential, varied style
 function genRound4(rng) {
-  const items = Array.from({ length: 49 }, (_, i) => ({
-    value:      i + 1,
-    col:        i % 9,
-    row:        Math.floor(i / 9),
-    fontSize:   Math.floor(rng() * 16) + 13,
-    rotation:   Math.floor(rng() * 52) - 26,
-    fontFamily: FONTS[Math.floor(rng() * FONTS.length)],
-    bold:       rng() > 0.42,
-    italic:     rng() > 0.65,
-    color:      GREENS[Math.floor(rng() * GREENS.length)],
-  }));
+  const items = Array.from({ length: 49 }, (_, i) => {
+    const flipped = rng() < 0.30; // ~30% upside-down
+    return {
+      value:      i + 1,
+      col:        i % 9,
+      row:        Math.floor(i / 9),
+      fontSize:   Math.floor(rng() * 16) + 13,
+      rotation:   flipped ? 180 : Math.floor(rng() * 40) - 20,
+      fontFamily: FONTS[Math.floor(rng() * FONTS.length)],
+      bold:       rng() > 0.42,
+      italic:     rng() > 0.65,
+      color:      GREENS[Math.floor(rng() * GREENS.length)],
+    };
+  });
   return { type: 'grid', items };
 }
 
@@ -294,8 +297,6 @@ function getLeaderboard(sess) {
 }
 
 // ── ROUND LIFECYCLE ─────────────────────────────────────────
-const BRIEF_DURATION = 4000; // ms before round actually starts
-
 function startRound(code, roundNum) {
   const sess = sessions[code];
   if (!sess) return;
@@ -304,22 +305,32 @@ function startRound(code, roundNum) {
 
   sess.currentRound = roundNum;
   sess.state        = 'briefing';
+  sess.roundStartTime = null;
 
+  // Send briefing to everyone — host will manually trigger round_start
   io.to(`s_${code}`).emit('round_briefing', {
     round: roundNum, name: cfg.name, seconds: cfg.seconds,
     tagline: cfg.tagline, mode: cfg.mode, layout,
   });
+}
 
-  setTimeout(() => {
-    if (!sessions[code]) return;
-    sess.state          = 'playing';
-    sess.roundStartTime = Date.now();
-    io.to(`s_${code}`).emit('round_start', {
-      round: roundNum, seconds: cfg.seconds, startTime: sess.roundStartTime,
-    });
-    if (sess.roundTimer) clearTimeout(sess.roundTimer);
-    sess.roundTimer = setTimeout(() => endRound(code, roundNum), cfg.seconds * 1000);
-  }, BRIEF_DURATION);
+function beginRound(code, pin) {
+  const sess = sessions[code];
+  if (!sess || sess.pin !== pin) return false;
+  if (sess.state !== 'briefing') return false;
+  const cfg = ROUNDS[sess.currentRound - 1];
+  if (!cfg) return false;
+
+  sess.state          = 'playing';
+  sess.roundStartTime = Date.now();
+
+  io.to(`s_${code}`).emit('round_start', {
+    round: sess.currentRound, seconds: cfg.seconds, startTime: sess.roundStartTime,
+  });
+
+  if (sess.roundTimer) clearTimeout(sess.roundTimer);
+  sess.roundTimer = setTimeout(() => endRound(code, sess.currentRound), cfg.seconds * 1000);
+  return true;
 }
 
 function endRound(code, roundNum) {
@@ -404,6 +415,12 @@ io.on('connection', socket => {
     }
     startRound(code, round);
     cb?.({ ok: true });
+  });
+
+  // HOST: begin round (after briefing)
+  socket.on('host_begin_round', ({ code, pin }, cb) => {
+    const ok = beginRound(code, pin);
+    cb?.({ ok });
   });
 
   // HOST: force end round

@@ -94,9 +94,7 @@ label.lbl{display:block;font-size:11px;letter-spacing:2px;color:#666;text-transf
 .mission-tag{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--orange);margin-bottom:4px}
 .mission-name{font-family:'Oswald',sans-serif;font-size:clamp(28px,8vw,64px);font-weight:700;color:#fff;line-height:1.1;margin-bottom:8px}
 .mission-time{font-family:'Oswald',sans-serif;font-size:22px;color:#aaa;margin-bottom:20px}
-.mission-instruction{background:rgba(232,98,26,.12);border:1px solid rgba(232,98,26,.3);border-radius:10px;padding:16px 20px;font-size:15px;color:#ddd;max-width:440px;line-height:1.6}
-.brief-countdown{font-family:'Oswald',sans-serif;font-size:clamp(60px,18vw,120px);font-weight:700;color:var(--orange);line-height:1;animation:countPop .9s ease infinite}
-@keyframes countPop{0%{transform:scale(1)}50%{transform:scale(1.08)}100%{transform:scale(1)}}
+.mission-instruction{background:rgba(232,98,26,.1);border:1px solid rgba(232,98,26,.25);border-radius:12px;padding:20px 22px;font-size:16px;color:#ddd;max-width:480px;line-height:1.8;text-align:left;margin-top:4px}
 .brief-label{font-size:13px;letter-spacing:2px;text-transform:uppercase;color:#555}
 
 /* ── GAME SCREEN ─────────────────────────────────────────── */
@@ -217,9 +215,8 @@ label.lbl{display:block;font-size:11px;letter-spacing:2px;color:#666;text-transf
   .n-grid{min-height:0}
   .game-field.grid-mode{gap:2px;padding:4px}
   /* Brief screen */
-  .brief-countdown{font-size:clamp(56px,22vw,96px)}
   .mission-name{font-size:clamp(22px,7vw,48px)}
-  .mission-instruction{font-size:13px;padding:12px 14px}
+  .mission-instruction{font-size:14px;padding:14px 16px;line-height:1.7}
   /* Entry */
   #s-entry h1{font-size:clamp(38px,14vw,72px)}
   /* Leaderboard */
@@ -348,14 +345,29 @@ label.lbl{display:block;font-size:11px;letter-spacing:2px;color:#666;text-transf
 
 <!-- ── S-BRIEF ── -->
 <div class="screen" id="s-brief">
-  <div class="animate-in" style="text-align:center;max-width:460px">
+  <div class="animate-in" style="text-align:center;max-width:500px;width:100%">
     <div class="mission-tag" id="b-mission-tag">Mission 1 of 7</div>
     <div class="mission-name" id="b-round-name">The Current Workplace</div>
     <div class="mission-time" id="b-time">⏱ 60 seconds</div>
     <div class="mission-instruction" id="b-instruction"></div>
-    <div style="margin-top:28px">
-      <div class="brief-label">Starting in</div>
-      <div class="brief-countdown" id="b-countdown">4</div>
+
+    <!-- Host only: Begin button -->
+    <div id="b-host-controls" style="display:none;margin-top:24px">
+      <button class="btn btn-primary" style="font-size:20px;padding:18px 56px" onclick="hostBeginRound()">
+        ▶ Begin Round
+      </button>
+      <div style="margin-top:10px;font-size:12px;color:#555;letter-spacing:1px;text-transform:uppercase">
+        Click when players are ready
+      </div>
+    </div>
+
+    <!-- Player: waiting -->
+    <div id="b-player-wait" style="display:none;margin-top:28px">
+      <div class="brief-label" style="margin-bottom:10px">Stand by</div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;color:#555;font-size:15px">
+        <span class="blink" style="width:10px;height:10px;background:var(--orange);border-radius:50%"></span>
+        Waiting for host to start...
+      </div>
     </div>
   </div>
 </div>
@@ -554,6 +566,17 @@ function hostNextRound() {
   hostStartRound(next);
 }
 
+function hostBeginRound() {
+  const btn = document.querySelector('#b-host-controls .btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Starting...'; }
+  socket.emit('host_begin_round', { code: myCode, pin: hostPin }, res => {
+    if (res && !res.ok) {
+      if (btn) { btn.disabled = false; btn.textContent = '▶ Begin Round'; }
+      alert('Could not begin round. Try again.');
+    }
+  });
+}
+
 function hostForceEndRound() {
   socket.emit('host_end_round', { code: myCode, pin: hostPin });
 }
@@ -587,9 +610,15 @@ function renderPlayerList(players) {
 // ═══════════════════════════════════════════════════════════
 // ROUND BRIEFING
 // ═══════════════════════════════════════════════════════════
-const INSTRUCTIONS = {
-  click_order:  'Tap numbers <strong>1 → 49 in order</strong> as fast as you can. Grey numbers are decoys — ignore them.',
-  find_missing: 'Numbers from 1–49 are <strong>missing</strong> from the board. Figure out which ones are gone — then tap them in the panel below.',
+// Per-round detailed briefing instructions
+const ROUND_BRIEF = {
+  1: 'Find and tap numbers <strong>1 to 49 in order</strong> — as fast as you can.<br><br>Watch out: there are <strong>decoy numbers</strong> mixed in. Ignore anything above 49. Only the real numbers count.',
+  2: 'Same challenge — tap numbers <strong>1 to 49 in order</strong>.<br><br>The decoys have been removed. Notice how that changes things.',
+  3: 'Numbers are grouped into <strong>three zones</strong>. Tap <strong>1 to 49 in order</strong>.<br><br>They\'re still scattered within each zone — but does grouping help?',
+  4: 'Numbers are in a grid — but some are <strong>upside down</strong>.<br><br>Tap <strong>1 to 49 in order</strong>. You may need to rotate your phone to read them. We\'re structured, but not yet standardized.',
+  5: 'Clean grid. Uniform format. Numbers <strong>1 to 49 in perfect order</strong>.<br><br>Tap them as fast as you can. This is what standardization feels like.',
+  6: 'Some numbers from 1 to 49 are <strong>missing</strong> from the board.<br><br>Figure out which ones are gone — then tap them in the number panel below the grid.',
+  7: 'A clean grid with <strong>two numbers missing</strong> — shown as blank cells.<br><br>You have 5 seconds. Identify them and tap the correct numbers in the panel below.',
 };
 
 function showBriefing(data) {
@@ -597,23 +626,19 @@ function showBriefing(data) {
   currentLayout = data.layout;
   currentMode   = data.mode;
 
-  document.getElementById('b-mission-tag').textContent   = `Mission ${data.round} of 7`;
-  document.getElementById('b-round-name').textContent    = data.name.toUpperCase();
-  document.getElementById('b-time').textContent          = `⏱ ${data.seconds} seconds`;
-  document.getElementById('b-instruction').innerHTML     = INSTRUCTIONS[data.mode] || '';
+  // Clear any stale countdown
+  if (briefInterval) { clearInterval(briefInterval); briefInterval = null; }
+
+  document.getElementById('b-mission-tag').textContent = `Mission ${data.round} of 7`;
+  document.getElementById('b-round-name').textContent  = data.name.toUpperCase();
+  document.getElementById('b-time').textContent        = `⏱ ${data.seconds} second${data.seconds !== 1 ? 's' : ''}`;
+  document.getElementById('b-instruction').innerHTML   = ROUND_BRIEF[data.round] || '';
+
+  const isHost_ = !!hostPin;
+  document.getElementById('b-host-controls').style.display  = isHost_ ? 'block' : 'none';
+  document.getElementById('b-player-wait').style.display    = isHost_ ? 'none'  : 'block';
 
   showScreen('s-brief');
-
-  // Clear any previous countdown before starting a new one
-  if (briefInterval) { clearInterval(briefInterval); briefInterval = null; }
-  let count = 4;
-  const cEl = document.getElementById('b-countdown');
-  cEl.textContent = count;
-  briefInterval = setInterval(() => {
-    count--;
-    cEl.textContent = Math.max(0, count);
-    if (count <= 0) { clearInterval(briefInterval); briefInterval = null; }
-  }, 1000);
 }
 
 // ═══════════════════════════════════════════════════════════
