@@ -384,6 +384,9 @@ io.on('connection', socket => {
     const sess = sessions[code];
     if (!sess || sess.pin !== pin) return cb?.({ ok: false, error: 'Unauthorized' });
     if (round < 1 || round > 7)   return cb?.({ ok: false });
+    if (sess.state === 'briefing' || sess.state === 'playing') {
+      return cb?.({ ok: false, error: 'A round is already in progress.' });
+    }
     startRound(code, round);
     cb?.({ ok: true });
   });
