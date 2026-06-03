@@ -235,7 +235,6 @@ label.lbl{display:block;font-size:11px;letter-spacing:2px;color:#666;text-transf
 .qr-wrap canvas{display:block}
 .qr-label{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.7);margin-top:10px}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 </head>
 <body>
 
@@ -314,7 +313,7 @@ label.lbl{display:block;font-size:11px;letter-spacing:2px;color:#666;text-transf
     <div class="code-share">
       <div class="label">Players scan to join</div>
       <div class="qr-wrap">
-        <canvas id="qr-canvas"></canvas>
+        <img id="qr-img" src="" alt="QR Code" width="180" height="180" style="display:block">
       </div>
       <div class="qr-label">or enter code manually</div>
       <div class="code" id="hl-code">----</div>
@@ -982,14 +981,9 @@ function esc(s) {
 
 // ── QR CODE ──────────────────────────────────────────────────
 function generateQR(code) {
-  const url    = `${location.origin}/?code=${code}`;
-  const canvas = document.getElementById('qr-canvas');
-  const size   = Math.min(200, window.innerWidth - 80);
-  QRCode.toCanvas(canvas, url, {
-    width: size,
-    margin: 1,
-    color: { dark: '#1A1A1A', light: '#ffffff' }
-  }, err => { if (err) console.error('QR error:', err); });
+  const url = encodeURIComponent(`${location.origin}/?code=${code}`);
+  document.getElementById('qr-img').src =
+    `https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&data=${url}`;
 }
 
 // Auto-switch to host tab if ?host=true
