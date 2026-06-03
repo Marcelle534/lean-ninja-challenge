@@ -428,6 +428,9 @@ label.lbl{display:block;font-size:11px;letter-spacing:2px;color:#666;text-transf
       <button class="btn btn-primary" id="btn-next-round" onclick="hostNextRound()">
         Start Next Round ▶
       </button>
+      <button class="btn btn-primary" id="btn-see-final" style="display:none" onclick="showScreen('s-final')">
+        🏆 See Final Rankings
+      </button>
       <div style="margin-top:8px">
         <button class="btn btn-ghost" onclick="showScreen('s-host-game')">View Live Leaderboard</button>
       </div>
@@ -584,6 +587,9 @@ function hostForceEndRound() {
 function hostReset() {
   if (!confirm('Reset the session? All scores will be cleared and players will return to the lobby.')) return;
   socket.emit('host_reset', { code: myCode, pin: hostPin }, () => {});
+  // Restore button states for a clean new game
+  document.getElementById('btn-next-round').style.display = '';
+  document.getElementById('btn-see-final').style.display  = 'none';
   renderPlayerList([]);
   document.getElementById('hl-player-list').innerHTML = '<div class="empty-lobby">Waiting for players to join...</div>';
   showScreen('s-host-lobby');
@@ -637,6 +643,10 @@ function showBriefing(data) {
   const isHost_ = !!hostPin;
   document.getElementById('b-host-controls').style.display  = isHost_ ? 'block' : 'none';
   document.getElementById('b-player-wait').style.display    = isHost_ ? 'none'  : 'block';
+
+  // Always reset the Begin Round button so it's usable every round
+  const beginBtn = document.querySelector('#b-host-controls .btn');
+  if (beginBtn) { beginBtn.disabled = false; beginBtn.textContent = '▶ Begin Round'; }
 
   showScreen('s-brief');
 }
@@ -1000,12 +1010,9 @@ socket.on('round_end', data => {
   if (data.isFinal) {
     renderLB('final-lb', data.leaderboard, true);
     document.getElementById('final-host-btns').style.display = isHost_ ? 'block' : 'none';
-    // Hide "start next round" for final round, show "See Final Rankings" instead
-    if (isHost_) {
-      document.getElementById('btn-next-round').style.display = 'none';
-      document.getElementById('r-host-controls').innerHTML +=
-        '<button class="btn btn-primary" style="margin-top:8px" onclick="showScreen(\'s-final\')">🏆 See Final Rankings</button>';
-    }
+    // On final round: swap "Start Next Round" for a "See Rankings" button
+    document.getElementById('btn-next-round').style.display    = 'none';
+    document.getElementById('btn-see-final').style.display     = isHost_ ? 'inline-flex' : 'none';
     setTimeout(() => showScreen('s-final'), 5000);
   }
 });
