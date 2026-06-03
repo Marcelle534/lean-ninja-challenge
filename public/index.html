@@ -461,16 +461,17 @@ const socket      = io();
 let myName        = '';
 let myCode        = '';
 let myPid         = '';
-let hostPin       = '';
-let currentRound  = 0;
-let roundScore    = 0;
+let hostPin        = '';
+let currentRound   = 0;
+let roundScore     = 0;
 let scoreSubmitted = false;
-let nextExpected  = 1;
-let timerInterval = null;
-let roundSeconds  = 0;
-let roundStart    = 0;
-let currentLayout = null;
-let currentMode   = 'click_order';
+let nextExpected   = 1;
+let timerInterval  = null;
+let briefInterval  = null;   // track briefing countdown so we can clear it
+let roundSeconds   = 0;
+let roundStart     = 0;
+let currentLayout  = null;
+let currentMode    = 'click_order';
 let missingNums   = [];
 let foundMissing  = [];
 
@@ -603,13 +604,15 @@ function showBriefing(data) {
 
   showScreen('s-brief');
 
+  // Clear any previous countdown before starting a new one
+  if (briefInterval) { clearInterval(briefInterval); briefInterval = null; }
   let count = 4;
   const cEl = document.getElementById('b-countdown');
   cEl.textContent = count;
-  const iv = setInterval(() => {
+  briefInterval = setInterval(() => {
     count--;
-    if (count <= 0) { clearInterval(iv); return; }
-    cEl.textContent = count;
+    cEl.textContent = Math.max(0, count);
+    if (count <= 0) { clearInterval(briefInterval); briefInterval = null; }
   }, 1000);
 }
 
@@ -617,8 +620,9 @@ function showBriefing(data) {
 // ROUND START
 // ═══════════════════════════════════════════════════════════
 function startGameRound(data) {
-  roundSeconds = data.seconds;
-  roundStart   = data.startTime;
+  currentRound    = data.round;     // always set from the event — belt-and-suspenders
+  roundSeconds    = data.seconds;
+  roundStart      = data.startTime;
   roundScore      = 0;
   scoreSubmitted  = false;
   nextExpected    = 1;
@@ -966,12 +970,18 @@ socket.on('round_end', data => {
     document.getElementById('btn-next-round').textContent = `Start Round ${data.round + 1} ▶`;
   }
 
+  showScreen('s-result');
+
   if (data.isFinal) {
     renderLB('final-lb', data.leaderboard, true);
     document.getElementById('final-host-btns').style.display = isHost_ ? 'block' : 'none';
-    setTimeout(() => showScreen('s-final'), 3000);
-  } else {
-    showScreen('s-result');
+    // Hide "start next round" for final round, show "See Final Rankings" instead
+    if (isHost_) {
+      document.getElementById('btn-next-round').style.display = 'none';
+      document.getElementById('r-host-controls').innerHTML +=
+        '<button class="btn btn-primary" style="margin-top:8px" onclick="showScreen(\'s-final\')">🏆 See Final Rankings</button>';
+    }
+    setTimeout(() => showScreen('s-final'), 5000);
   }
 });
 
@@ -1007,6 +1017,28 @@ function generateQR(code) {
   fb.textContent    = joinUrl;
   fb.style.display  = 'block';
 }
+
+// ── RECONNECTION ─────────────────────────────────────────────
+socket.on('disconnect', () => {
+  console.log('Socket disconnected');
+});
+
+socket.on('reconnect', () => {
+  console.log('Socket reconnected — re-identifying');
+  if (myCode && hostPin) {
+    socket.emit('host_rejoin', { code: myCode, pin: hostPin }, res => {
+      if (!res.ok) console.warn('Host rejoin failed:', res.error);
+    });
+  } else if (myCode && myPid) {
+    socket.emit('player_rejoin', { code: myCode, pid: myPid, name: myName }, res => {
+      if (!res.ok) {
+        // Session gone (server restarted) — send back to entry
+        showScreen('s-entry');
+        document.getElementById('join-err').textContent = 'Connection lost — please re-enter the game code.';
+      }
+    });
+  }
+});
 
 // Auto-switch to host tab if ?host=true
 if (isHost) switchTab('host');

@@ -325,12 +325,13 @@ function startRound(code, roundNum) {
 function endRound(code, roundNum) {
   const sess = sessions[code];
   if (!sess || sess.state === 'result' || sess.state === 'final') return;
+  if (!roundNum || roundNum < 1 || roundNum > 7) return; // guard invalid round
   if (sess.roundTimer) { clearTimeout(sess.roundTimer); sess.roundTimer = null; }
   const isFinal = roundNum >= 7;
   sess.state    = isFinal ? 'final' : 'result';
   const cfg     = ROUNDS[roundNum - 1];
   io.to(`s_${code}`).emit('round_end', {
-    round: roundNum, tagline: cfg.tagline, isFinal,
+    round: roundNum, name: cfg.name, tagline: cfg.tagline, isFinal,
     leaderboard: getLeaderboard(sess),
   });
 }
@@ -360,6 +361,20 @@ io.on('connection', socket => {
     socket.join(`host_${code}`);
     cb({ ok: true, state: sess.state, currentRound: sess.currentRound,
          players: Object.values(sess.players).map(p => ({ id: p.id, name: p.name, totalScore: p.totalScore })) });
+  });
+
+  // PLAYER: rejoin after reconnect
+  socket.on('player_rejoin', ({ code, pid, name }, cb) => {
+    const sess = sessions[code];
+    if (!sess) return cb({ ok: false, error: 'Session not found.' });
+    let player = sess.players[pid];
+    // Fall back to name match if pid not found (e.g. server restarted)
+    if (!player) player = Object.values(sess.players).find(p => p.name === name);
+    if (!player) return cb({ ok: false, error: 'Player not found.' });
+    myCode = code; myPid = player.id;
+    player.socketId = socket.id;
+    socket.join(`s_${code}`);
+    cb({ ok: true, playerId: player.id, state: sess.state, currentRound: sess.currentRound });
   });
 
   // PLAYER: join
