@@ -300,6 +300,7 @@ function getLeaderboard(sess) {
 function startRound(code, roundNum) {
   const sess = sessions[code];
   if (!sess) return;
+  if (!roundNum || roundNum < 1 || roundNum > 7) return;
   const cfg    = ROUNDS[roundNum - 1];
   const layout = generateLayout(roundNum, sess.seed);
 

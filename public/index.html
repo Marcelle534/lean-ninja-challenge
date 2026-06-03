@@ -973,16 +973,19 @@ socket.on('player_joined', data => {
 });
 
 socket.on('round_briefing', data => {
+  if (!data.round || data.round < 1 || data.round > 7) return;
   currentLayout = data.layout;
   currentMode   = data.mode;
   showBriefing(data);
 });
 
 socket.on('round_start', data => {
+  if (!data.round || data.round < 1 || data.round > 7) return;
   startGameRound(data);
 });
 
 socket.on('round_end', data => {
+  if (!data.round || data.round < 1 || data.round > 7) return;
   stopTimer();
   if (!scoreSubmitted) {
     scoreSubmitted = true;
